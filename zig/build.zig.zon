@@ -1,0 +1,13 @@
+.{
+    .name = .pkgbuilder,
+    .version = "0.0.0",
+    .fingerprint = 0x5a902b02af8de547,
+    .minimum_zig_version = "0.14.1",
+    .dependencies = .{},
+
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
