@@ -69,12 +69,12 @@ impl ArtifactCollector {
         // Collect files for each pattern
         for pattern in &self.config.artifacts.patterns {
             let artifacts = self.collect_pattern(pattern)?;
-            
+
             // Check if we found any package files
             if pattern.contains(".pkg.tar.") && !artifacts.is_empty() {
                 found_packages = true;
             }
-            
+
             collected.extend(artifacts);
         }
 
@@ -110,14 +110,18 @@ impl ArtifactCollector {
             artifacts.push(artifact);
         }
 
-        debug!("Collected {} files for pattern {}", artifacts.len(), pattern);
+        debug!(
+            "Collected {} files for pattern {}",
+            artifacts.len(),
+            pattern
+        );
         Ok(artifacts)
     }
 
     /// Find package files (*.pkg.tar.*)
     fn find_package_files(&self) -> Result<Vec<PathBuf>> {
         let mut files = Vec::new();
-        
+
         for pattern in &["*.pkg.tar.xz", "*.pkg.tar.zst", "*.pkg.tar.gz"] {
             if let Ok(paths) = glob::glob(pattern) {
                 for path in paths.flatten() {
@@ -125,14 +129,14 @@ impl ArtifactCollector {
                 }
             }
         }
-        
+
         Ok(files)
     }
 
     /// Find log files
     fn find_log_files(&self) -> Result<Vec<PathBuf>> {
         let mut files = Vec::new();
-        
+
         if let Ok(paths) = glob::glob("*.log") {
             for path in paths.flatten() {
                 files.push(path);
@@ -154,7 +158,7 @@ impl ArtifactCollector {
     /// Find files using glob pattern
     fn find_glob_pattern(&self, pattern: &str) -> Result<Vec<PathBuf>> {
         let mut files = Vec::new();
-        
+
         match glob::glob(pattern) {
             Ok(paths) => {
                 for path_result in paths {
@@ -168,7 +172,7 @@ impl ArtifactCollector {
                 warn!("Invalid glob pattern {}: {}", pattern, e);
             }
         }
-        
+
         Ok(files)
     }
 
@@ -178,12 +182,7 @@ impl ArtifactCollector {
         let file_name = file_path
             .file_name()
             .and_then(|n| n.to_str())
-            .ok_or_else(|| {
-                BuilderError::artifact(
-                    "Invalid file name",
-                    file_path.to_path_buf(),
-                )
-            })?;
+            .ok_or_else(|| BuilderError::artifact("Invalid file name", file_path.to_path_buf()))?;
 
         let destination = self.config.artifacts.output_dir.join(file_name);
 
@@ -205,7 +204,11 @@ impl ArtifactCollector {
                             file_path.to_path_buf(),
                         )
                     })?;
-                info!("  Copied: {} -> {}", file_path.display(), destination.display());
+                info!(
+                    "  Copied: {} -> {}",
+                    file_path.display(),
+                    destination.display()
+                );
             }
             ArtifactOperation::Moved => {
                 self.fs_utils
@@ -216,7 +219,11 @@ impl ArtifactCollector {
                             file_path.to_path_buf(),
                         )
                     })?;
-                info!("  Moved: {} -> {}", file_path.display(), destination.display());
+                info!(
+                    "  Moved: {} -> {}",
+                    file_path.display(),
+                    destination.display()
+                );
             }
         }
 
@@ -298,7 +305,13 @@ impl std::fmt::Display for CollectionSummary {
         write!(
             f,
             "Collected {} artifacts: {} packages, {} logs, {} sources, {} others ({} copied, {} moved)",
-            self.total, self.packages, self.logs, self.sources, self.others, self.copied, self.moved
+            self.total,
+            self.packages,
+            self.logs,
+            self.sources,
+            self.others,
+            self.copied,
+            self.moved
         )
     }
 }
@@ -321,7 +334,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let config = create_test_config(&temp_dir);
         let collector = ArtifactCollector::new(config);
-        
+
         assert!(collector.config.artifacts.preserve_sources);
     }
 
@@ -330,10 +343,10 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let config = create_test_config(&temp_dir);
         let collector = ArtifactCollector::new(config);
-        
+
         let pkgbuild_path = Path::new("PKGBUILD");
         let package_path = Path::new("test-1.0.0-1-x86_64.pkg.tar.zst");
-        
+
         assert!(collector.should_copy_file(pkgbuild_path, "PKGBUILD"));
         assert!(!collector.should_copy_file(package_path, "*.pkg.tar.*"));
     }
@@ -343,22 +356,22 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let config = create_test_config(&temp_dir);
         let collector = ArtifactCollector::new(config);
-        
+
         // Create a test file
         let test_file = temp_dir.path().join("test.txt");
         fs::write(&test_file, "test content").unwrap();
-        
+
         // Change to temp directory for the test
         let original_dir = std::env::current_dir().unwrap();
         std::env::set_current_dir(temp_dir.path()).unwrap();
-        
+
         let found = collector.find_exact_file("test.txt").unwrap();
         assert_eq!(found.len(), 1);
         assert_eq!(found[0], Path::new("test.txt"));
-        
+
         let not_found = collector.find_exact_file("nonexistent.txt").unwrap();
         assert_eq!(not_found.len(), 0);
-        
+
         // Restore original directory
         std::env::set_current_dir(original_dir).unwrap();
     }
@@ -368,7 +381,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let config = create_test_config(&temp_dir);
         let collector = ArtifactCollector::new(config);
-        
+
         let artifacts = vec![
             CollectedArtifact {
                 source: PathBuf::from("test-1.0.0-1.pkg.tar.zst"),
@@ -386,7 +399,7 @@ mod tests {
                 operation: ArtifactOperation::Moved,
             },
         ];
-        
+
         let summary = collector.get_collection_summary(&artifacts);
         assert_eq!(summary.total, 3);
         assert_eq!(summary.packages, 1);

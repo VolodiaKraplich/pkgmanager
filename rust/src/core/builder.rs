@@ -99,7 +99,7 @@ impl PackageBuilder {
             }
             Err(e) => {
                 warn!("Primary package manager {} failed: {}", cmd, e);
-                
+
                 // Try fallback if configured
                 if let Some(fallback) = &self.config.package_manager.fallback {
                     info!("Trying fallback package manager: {}", fallback);
@@ -117,7 +117,13 @@ impl PackageBuilder {
     /// Try installing with fallback package manager (usually pacman with sudo)
     fn try_fallback_installation(&self, fallback: &str, packages: &[String]) -> Result<()> {
         let mut args = vec![fallback];
-        args.extend(self.config.package_manager.install_args.iter().map(|s| s.as_str()));
+        args.extend(
+            self.config
+                .package_manager
+                .install_args
+                .iter()
+                .map(|s| s.as_str()),
+        );
         let package_strs: Vec<&str> = packages.iter().map(|s| s.as_str()).collect();
         args.extend(package_strs);
 
@@ -176,7 +182,10 @@ impl PackageBuilder {
 
         // Set ccache environment if enabled
         if self.config.build.use_ccache {
-            env_vars.push(("CCACHE_DIR".to_string(), self.config.build.ccache_dir.to_string_lossy().to_string()));
+            env_vars.push((
+                "CCACHE_DIR".to_string(),
+                self.config.build.ccache_dir.to_string_lossy().to_string(),
+            ));
         }
 
         // Execute build command
@@ -195,11 +204,14 @@ impl PackageBuilder {
                 • The PKGBUILD has a conditional 'exit 0'\n\
                 • The build failed silently (check logs above)\n\
                 • Dynamic pkgver/pkgrel caused unexpected naming\n\n\
-                Please review the build output carefully for warnings or skipped steps."
+                Please review the build output carefully for warnings or skipped steps.",
             ));
         }
 
-        info!("Build completed successfully. Generated {} package(s)", package_files.len());
+        info!(
+            "Build completed successfully. Generated {} package(s)",
+            package_files.len()
+        );
 
         // List generated files for verification
         self.list_package_files(&package_files)?;
@@ -225,7 +237,10 @@ impl PackageBuilder {
                 }
             }
             Err(e) => {
-                return Err(BuilderError::build(format!("Failed to search for package files: {}", e)));
+                return Err(BuilderError::build(format!(
+                    "Failed to search for package files: {}",
+                    e
+                )));
             }
         }
 
@@ -237,9 +252,7 @@ impl PackageBuilder {
     /// List package files with details
     fn list_package_files(&self, package_files: &[PathBuf]) -> Result<()> {
         let mut args = vec!["-la"];
-        let file_strs: Vec<&str> = package_files.iter()
-            .filter_map(|p| p.to_str())
-            .collect();
+        let file_strs: Vec<&str> = package_files.iter().filter_map(|p| p.to_str()).collect();
         args.extend(file_strs);
 
         if let Err(e) = self.process_runner.run_command("ls", &args) {
@@ -254,7 +267,6 @@ impl PackageBuilder {
 mod tests {
     use super::*;
     use crate::config::{BuildConfig, PackageManagerConfig};
-    
 
     fn create_test_config() -> Config {
         Config {
@@ -271,18 +283,20 @@ mod tests {
     fn test_handle_rust_conflict() {
         let config = create_test_config();
         let builder = PackageBuilder::new(config);
-        
+
         let deps = vec![
             "rust".to_string(),
             "cargo".to_string(),
             "other-dep".to_string(),
         ];
-        
+
         let filtered = builder.handle_rust_conflict(deps).unwrap();
-        
+
         // Should either have rustup or remove cargo if rustup exists
         assert!(filtered.contains(&"other-dep".to_string()));
-        assert!(filtered.contains(&"rustup".to_string()) || !filtered.contains(&"cargo".to_string()));
+        assert!(
+            filtered.contains(&"rustup".to_string()) || !filtered.contains(&"cargo".to_string())
+        );
     }
 
     #[test]

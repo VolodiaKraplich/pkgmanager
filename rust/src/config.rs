@@ -128,7 +128,7 @@ impl Config {
             debug: args.debug,
             ..Self::default()
         };
-        
+
         // Override with command-specific options
         match &args.command {
             crate::cli::Command::Build { clean, sign } => {
@@ -143,43 +143,45 @@ impl Config {
             }
             _ => {}
         }
-        
+
         config.validate()?;
         Ok(config)
     }
-    
+
     /// Validate configuration
     pub fn validate(&self) -> Result<(), BuilderError> {
         if !self.pkgbuild_path.exists() {
-            return Err(BuilderError::validation(
-                format!("PKGBUILD file not found: {}", self.pkgbuild_path.display())
-            ));
+            return Err(BuilderError::validation(format!(
+                "PKGBUILD file not found: {}",
+                self.pkgbuild_path.display()
+            )));
         }
-        
+
         if !self.work_dir.exists() {
-            return Err(BuilderError::validation(
-                format!("Working directory not found: {}", self.work_dir.display())
-            ));
+            return Err(BuilderError::validation(format!(
+                "Working directory not found: {}",
+                self.work_dir.display()
+            )));
         }
-        
+
         Ok(())
     }
-    
+
     /// Get package manager command with arguments
     pub fn get_package_manager_cmd(&self) -> (String, Vec<String>) {
         let cmd_args = self.package_manager.install_args.clone();
         (self.package_manager.primary.clone(), cmd_args)
     }
-    
+
     /// Get build command with arguments
     pub fn get_build_cmd(&self) -> (String, Vec<String>) {
         let mut args = self.build.build_args.clone();
         args.push("./".to_string());
-        
+
         if self.build.sign {
             args.push("--sign".to_string());
         }
-        
+
         ("paru".to_string(), args)
     }
 }

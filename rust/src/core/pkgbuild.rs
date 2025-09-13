@@ -9,8 +9,7 @@ use std::path::Path;
 use tracing::{debug, instrument};
 
 /// Information extracted from a PKGBUILD file
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct PkgbuildInfo {
     /// Package name
     pub name: String,
@@ -33,12 +32,12 @@ impl PkgbuildInfo {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Get the full package version (version-release)
     pub fn full_version(&self) -> String {
         format!("{}-{}", self.version, self.release)
     }
-    
+
     /// Get all dependencies combined
     pub fn all_dependencies(&self) -> Vec<String> {
         let mut deps = self.depends.clone();
@@ -46,13 +45,12 @@ impl PkgbuildInfo {
         deps.extend(self.check_depends.clone());
         deps
     }
-    
+
     /// Check if the package has any dependencies
     pub fn has_dependencies(&self) -> bool {
         !self.depends.is_empty() || !self.make_depends.is_empty() || !self.check_depends.is_empty()
     }
 }
-
 
 /// PKGBUILD parser with support for various variable assignment patterns
 pub struct PkgbuildParser {
@@ -74,12 +72,18 @@ impl PkgbuildParser {
     /// Create a new PKGBUILD parser
     pub fn new() -> Result<Self> {
         Ok(Self {
-            re_double_quoted: Regex::new(r#"(?m)^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*"([^"\n#]*?)"\s*(?:#.*)?$"#)
-                .map_err(|e| BuilderError::config(format!("Failed to compile regex: {}", e)))?,
-            re_single_quoted: Regex::new(r#"(?m)^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*'([^'\n#]*?)'\s*(?:#.*)?$"#)
-                .map_err(|e| BuilderError::config(format!("Failed to compile regex: {}", e)))?,
-            re_unquoted: Regex::new(r#"(?m)^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^'"\n#]+?)\s*(?:#.*)?$"#)
-                .map_err(|e| BuilderError::config(format!("Failed to compile regex: {}", e)))?,
+            re_double_quoted: Regex::new(
+                r#"(?m)^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*"([^"\n#]*?)"\s*(?:#.*)?$"#,
+            )
+            .map_err(|e| BuilderError::config(format!("Failed to compile regex: {}", e)))?,
+            re_single_quoted: Regex::new(
+                r#"(?m)^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*'([^'\n#]*?)'\s*(?:#.*)?$"#,
+            )
+            .map_err(|e| BuilderError::config(format!("Failed to compile regex: {}", e)))?,
+            re_unquoted: Regex::new(
+                r#"(?m)^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^'"\n#]+?)\s*(?:#.*)?$"#,
+            )
+            .map_err(|e| BuilderError::config(format!("Failed to compile regex: {}", e)))?,
             re_array: Regex::new(r#"(?ms)^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*\(\s*(.*?)\s*\)"#)
                 .map_err(|e| BuilderError::config(format!("Failed to compile regex: {}", e)))?,
             re_comment: Regex::new(r#"(?m)#.*$"#)
@@ -109,7 +113,7 @@ impl PkgbuildParser {
 
         // Parse single-value variables
         self.parse_single_variables(&content, &mut info)?;
-        
+
         // Parse array variables
         self.parse_array_variables(&content, &mut info)?;
 
@@ -195,7 +199,7 @@ impl PkgbuildParser {
     fn clean_array_content(&self, content: &str) -> Result<Vec<String>> {
         // Remove comments
         let cleaned = self.re_comment.replace_all(content, "");
-        
+
         // Normalize whitespace and remove quotes
         let normalized = cleaned
             .replace(['\n', '\t'], " ")

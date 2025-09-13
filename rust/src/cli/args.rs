@@ -22,25 +22,25 @@ pub struct Args {
 pub enum Command {
     /// Parse PKGBUILD and install dependencies
     Deps,
-    
+
     /// Build the package using paru
     Build {
         /// Clean previous build artifacts before building
         #[arg(long)]
         clean: bool,
-        
+
         /// Sign the package using GPG
         #[arg(long)]
         sign: bool,
     },
-    
+
     /// Collect build artifacts
     Artifacts {
         /// Output directory for artifacts
         #[arg(short = 'o', long = "output-dir", default_value = "artifacts")]
         output_dir: PathBuf,
     },
-    
+
     /// Generate version information file
     Version {
         /// Output file for version information
@@ -57,20 +57,20 @@ pub fn parse_args() -> Args {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_parse_basic_args() {
         let args = Args::try_parse_from(["builder", "deps"]).unwrap();
         assert!(!args.debug);
         assert!(matches!(args.command, Command::Deps));
     }
-    
+
     #[test]
     fn test_parse_debug_flag() {
         let args = Args::try_parse_from(["builder", "--debug", "deps"]).unwrap();
         assert!(args.debug);
     }
-    
+
     #[test]
     fn test_parse_build_with_options() {
         let args = Args::try_parse_from(["builder", "build", "--clean", "--sign"]).unwrap();

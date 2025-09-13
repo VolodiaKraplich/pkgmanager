@@ -5,5 +5,5 @@
 pub mod args;
 pub mod commands;
 
-pub use args::{parse_args, Args, Command};
+pub use args::{Args, Command, parse_args};
 pub use commands::execute_command;

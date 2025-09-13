@@ -78,10 +78,7 @@ pub enum BuilderError {
 
 impl BuilderError {
     /// Create a new PKGBUILD parsing error
-    pub fn pkgbuild_parse<P: Into<PathBuf>>(
-        message: impl Into<String>,
-        path: P,
-    ) -> Self {
+    pub fn pkgbuild_parse<P: Into<PathBuf>>(message: impl Into<String>, path: P) -> Self {
         Self::PkgbuildParse {
             message: message.into(),
             path: path.into(),
@@ -90,10 +87,7 @@ impl BuilderError {
     }
 
     /// Create a new dependency error
-    pub fn dependency(
-        message: impl Into<String>,
-        dependencies: Vec<String>,
-    ) -> Self {
+    pub fn dependency(message: impl Into<String>, dependencies: Vec<String>) -> Self {
         Self::Dependency {
             message: message.into(),
             dependencies,
@@ -110,10 +104,7 @@ impl BuilderError {
     }
 
     /// Create a new artifact error
-    pub fn artifact<P: Into<PathBuf>>(
-        message: impl Into<String>,
-        path: P,
-    ) -> Self {
+    pub fn artifact<P: Into<PathBuf>>(message: impl Into<String>, path: P) -> Self {
         Self::Artifact {
             message: message.into(),
             path: path.into(),

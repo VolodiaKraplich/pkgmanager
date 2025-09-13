@@ -30,7 +30,7 @@ pub mod error;
 pub mod utils;
 
 use anyhow::Result;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 /// Initialize logging with appropriate verbosity
 pub fn setup_logging(debug: bool) -> Result<()> {

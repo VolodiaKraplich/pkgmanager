@@ -189,7 +189,7 @@ func parsePKGBUILD(path string) (*pkgbuildInfo, error) {
 		info.PkgName, info.PkgVer, info.PkgRel)
 
 	if info.PkgName == "" || info.PkgVer == "" || info.PkgRel == "" {
-		return nil, fmt.Errorf("could not parse required variables from PKGBUILD. Found: pkgname='%s', pkgver='%s', pkgrel='%s'. This suggests the PKGBUILD format is unusual or contains complex variable assignments.",
+		return nil, fmt.Errorf("could not parse required variables from PKGBUILD. Found: pkgname='%s', pkgver='%s', pkgrel='%s'. This suggests the PKGBUILD format is unusual or contains complex variable assignments",
 			info.PkgName, info.PkgVer, info.PkgRel)
 	}
 

@@ -46,7 +46,7 @@ impl ProcessRunner {
         env_vars: &[(String, String)],
     ) -> Result<()> {
         let cmd_str = format!("{} {}", command, args.join(" "));
-        
+
         if self.debug {
             debug!("Running command: {}", cmd_str);
             if !env_vars.is_empty() {
@@ -91,11 +91,7 @@ impl ProcessRunner {
 
     /// Run a command and capture its output
     #[instrument(skip(self))]
-    pub fn run_command_with_output(
-        &self,
-        command: &str,
-        args: &[&str],
-    ) -> Result<ProcessResult> {
+    pub fn run_command_with_output(&self, command: &str, args: &[&str]) -> Result<ProcessResult> {
         self.run_command_with_output_and_env(command, args, &[])
     }
 
@@ -108,13 +104,11 @@ impl ProcessRunner {
         env_vars: &[(String, String)],
     ) -> Result<ProcessResult> {
         let cmd_str = format!("{} {}", command, args.join(" "));
-        
+
         debug!("Running command with output capture: {}", cmd_str);
 
         let mut cmd = Command::new(command);
-        cmd.args(args)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+        cmd.args(args).stdout(Stdio::piped()).stderr(Stdio::piped());
 
         // Add environment variables
         for (key, value) in env_vars {
@@ -160,7 +154,7 @@ impl ProcessRunner {
     #[instrument(skip(self))]
     pub fn command_exists(&self, command: &str) -> bool {
         debug!("Checking if command exists: {}", command);
-        
+
         let result = Command::new("which")
             .arg(command)
             .stdout(Stdio::null())
@@ -187,10 +181,15 @@ impl ProcessRunner {
         commands: &[(&str, &[&str])],
     ) -> Result<Vec<ProcessResult>> {
         let mut results = Vec::new();
-        
+
         for (i, (command, args)) in commands.iter().enumerate() {
-            debug!("Running command {} of {}: {}", i + 1, commands.len(), command);
-            
+            debug!(
+                "Running command {} of {}: {}",
+                i + 1,
+                commands.len(),
+                command
+            );
+
             match self.run_command_with_output(command, args) {
                 Ok(result) => {
                     debug!("Command {} completed successfully", i + 1);
@@ -202,7 +201,7 @@ impl ProcessRunner {
                 }
             }
         }
-        
+
         info!("All {} commands completed successfully", commands.len());
         Ok(results)
     }
@@ -212,9 +211,9 @@ impl ProcessRunner {
     #[instrument(skip(self))]
     pub fn kill_process(&self, pid: u32, signal: i32) -> Result<()> {
         debug!("Killing process {} with signal {}", pid, signal);
-        
+
         let result = self.run_command("kill", &[&format!("-{}", signal), &pid.to_string()]);
-        
+
         match result {
             Ok(()) => {
                 debug!("Process {} killed successfully", pid);
@@ -232,16 +231,21 @@ impl ProcessRunner {
     #[instrument(skip(self))]
     pub fn get_processes_by_name(&self, name: &str) -> Result<Vec<u32>> {
         debug!("Getting processes by name: {}", name);
-        
+
         let result = self.run_command_with_output("pgrep", &[name])?;
-        
+
         let pids: Vec<u32> = result
             .stdout
             .lines()
             .filter_map(|line| line.trim().parse().ok())
             .collect();
-        
-        debug!("Found {} processes named '{}': {:?}", pids.len(), name, pids);
+
+        debug!(
+            "Found {} processes named '{}': {:?}",
+            pids.len(),
+            name,
+            pids
+        );
         Ok(pids)
     }
 }
@@ -260,7 +264,7 @@ mod tests {
     fn test_process_runner_creation() {
         let runner = ProcessRunner::new(true);
         assert!(runner.debug);
-        
+
         let runner = ProcessRunner::default();
         assert!(!runner.debug);
     }
@@ -275,8 +279,10 @@ mod tests {
     #[test]
     fn test_run_command_with_output() {
         let runner = ProcessRunner::new(false);
-        let result = runner.run_command_with_output("echo", &["hello", "world"]).unwrap();
-        
+        let result = runner
+            .run_command_with_output("echo", &["hello", "world"])
+            .unwrap();
+
         assert!(result.success);
         assert_eq!(result.stdout.trim(), "hello world");
         assert!(result.stderr.is_empty());
@@ -285,11 +291,11 @@ mod tests {
     #[test]
     fn test_command_exists() {
         let runner = ProcessRunner::new(false);
-        
+
         // These commands should exist on most Unix systems
         assert!(runner.command_exists("echo"));
         assert!(runner.command_exists("ls"));
-        
+
         // This command should not exist
         assert!(!runner.command_exists("nonexistent_command_12345"));
     }
@@ -299,8 +305,11 @@ mod tests {
         let runner = ProcessRunner::new(false);
         let result = runner.run_command("false", &[]);
         assert!(result.is_err());
-        
-        if let Err(BuilderError::Process { command, exit_code, .. }) = result {
+
+        if let Err(BuilderError::Process {
+            command, exit_code, ..
+        }) = result
+        {
             assert_eq!(command, "false ");
             assert_eq!(exit_code, Some(1));
         } else {
@@ -312,13 +321,11 @@ mod tests {
     fn test_run_command_with_env() {
         let runner = ProcessRunner::new(false);
         let env_vars = vec![("TEST_VAR".to_string(), "test_value".to_string())];
-        
-        let result = runner.run_command_with_output_and_env(
-            "sh", 
-            &["-c", "echo $TEST_VAR"], 
-            &env_vars
-        ).unwrap();
-        
+
+        let result = runner
+            .run_command_with_output_and_env("sh", &["-c", "echo $TEST_VAR"], &env_vars)
+            .unwrap();
+
         assert!(result.success);
         assert_eq!(result.stdout.trim(), "test_value");
     }
@@ -326,11 +333,8 @@ mod tests {
     #[test]
     fn test_run_commands_sequence() {
         let runner = ProcessRunner::new(false);
-        let commands = vec![
-            ("echo", &["first"][..]),
-            ("echo", &["second"][..]),
-        ];
-        
+        let commands = vec![("echo", &["first"][..]), ("echo", &["second"][..])];
+
         let results = runner.run_commands_sequence(&commands).unwrap();
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].stdout.trim(), "first");
@@ -345,7 +349,7 @@ mod tests {
             ("false", &[][..]), // This will fail
             ("echo", &["third"][..]),
         ];
-        
+
         let result = runner.run_commands_sequence(&commands);
         assert!(result.is_err());
     }
@@ -354,11 +358,11 @@ mod tests {
     #[test]
     fn test_get_processes_by_name() {
         let runner = ProcessRunner::new(false);
-        
+
         // Try to get processes for a common process (this might be empty, that's ok)
         let result = runner.get_processes_by_name("init");
         assert!(result.is_ok());
-        
+
         // Try with a process name that definitely doesn't exist
         let result = runner.get_processes_by_name("nonexistent_process_12345");
         assert!(result.is_ok());
