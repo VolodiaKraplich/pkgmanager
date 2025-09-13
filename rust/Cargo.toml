@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "A reliable tool for building Arch Linux/PrismLinux packages in GitLab CI"
 license = "MIT"
+publish = false
 
 [[bin]]
 name = "builder"
