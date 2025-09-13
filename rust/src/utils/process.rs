@@ -27,7 +27,8 @@ pub struct ProcessResult {
 
 impl ProcessRunner {
     /// Create a new process runner
-    pub fn new(debug: bool) -> Self {
+    #[must_use]
+    pub const fn new(debug: bool) -> Self {
         Self { debug }
     }
 
@@ -71,7 +72,7 @@ impl ProcessRunner {
                 cmd_str.clone(),
                 None,
                 String::new(),
-                format!("Failed to execute command: {}", e),
+                format!("Failed to execute command: {e}"),
             )
         })?;
 
@@ -81,7 +82,7 @@ impl ProcessRunner {
                 cmd_str,
                 exit_code,
                 String::new(),
-                format!("Command failed with exit code: {:?}", exit_code),
+                format!("Command failed with exit code: {exit_code:?}"),
             ));
         }
 
@@ -120,7 +121,7 @@ impl ProcessRunner {
                 cmd_str.clone(),
                 None,
                 String::new(),
-                format!("Failed to execute command: {}", e),
+                format!("Failed to execute command: {e}"),
             )
         })?;
 
@@ -212,7 +213,7 @@ impl ProcessRunner {
     pub fn kill_process(&self, pid: u32, signal: i32) -> Result<()> {
         debug!("Killing process {} with signal {}", pid, signal);
 
-        let result = self.run_command("kill", &[&format!("-{}", signal), &pid.to_string()]);
+        let result = self.run_command("kill", &[&format!("-{signal}"), &pid.to_string()]);
 
         match result {
             Ok(()) => {

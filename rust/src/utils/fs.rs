@@ -13,7 +13,8 @@ pub struct FileSystemUtils;
 
 impl FileSystemUtils {
     /// Create a new file system utilities instance
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self
     }
 

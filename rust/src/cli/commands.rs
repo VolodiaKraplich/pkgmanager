@@ -11,7 +11,7 @@ use tracing::{info, instrument};
 
 /// Execute the appropriate command based on CLI arguments
 #[instrument(skip(config))]
-pub fn execute_command(config: &Config, command: Command) -> anyhow::Result<()> {
+pub fn execute_command(config: &Config, command: &Command) -> anyhow::Result<()> {
     match command {
         Command::Deps => execute_deps_command(config),
         Command::Build { .. } => execute_build_command(config),

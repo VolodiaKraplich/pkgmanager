@@ -50,6 +50,7 @@ pub enum Command {
 }
 
 /// Parse command line arguments
+#[must_use]
 pub fn parse_args() -> Args {
     Args::parse()
 }

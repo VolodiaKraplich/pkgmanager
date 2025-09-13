@@ -136,12 +136,12 @@ impl Config {
                 config.build.sign = *sign;
             }
             crate::cli::Command::Artifacts { output_dir } => {
-                config.artifacts.output_dir = output_dir.clone();
+                config.artifacts.output_dir.clone_from(output_dir);
             }
             crate::cli::Command::Version { output_file } => {
-                config.artifacts.version_file = output_file.clone();
+                config.artifacts.version_file.clone_from(output_file);
             }
-            _ => {}
+            crate::cli::Command::Deps => {}
         }
 
         config.validate()?;
@@ -168,12 +168,14 @@ impl Config {
     }
 
     /// Get package manager command with arguments
+    #[must_use]
     pub fn get_package_manager_cmd(&self) -> (String, Vec<String>) {
         let cmd_args = self.package_manager.install_args.clone();
         (self.package_manager.primary.clone(), cmd_args)
     }
 
     /// Get build command with arguments
+    #[must_use]
     pub fn get_build_cmd(&self) -> (String, Vec<String>) {
         let mut args = self.build.build_args.clone();
         args.push("./".to_string());

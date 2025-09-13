@@ -1,5 +1,6 @@
+#![allow(clippy::cargo_common_metadata)]
 use anyhow::Result;
-use arch_package_builder::{cli, config::Config, setup_logging};
+use pkgmanager_builder::{cli, config::Config, setup_logging};
 
 fn main() -> Result<()> {
     // Parse command line arguments
@@ -12,5 +13,5 @@ fn main() -> Result<()> {
     let config = Config::from_args(&args)?;
 
     // Execute the appropriate command
-    cli::execute_command(&config, args.command)
+    cli::execute_command(&config, &args.command)
 }

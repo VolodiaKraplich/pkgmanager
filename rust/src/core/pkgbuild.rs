@@ -29,16 +29,19 @@ pub struct PkgbuildInfo {
 
 impl PkgbuildInfo {
     /// Create a new empty PKGBUILD info structure
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Get the full package version (version-release)
+    #[must_use]
     pub fn full_version(&self) -> String {
         format!("{}-{}", self.version, self.release)
     }
 
     /// Get all dependencies combined
+    #[must_use]
     pub fn all_dependencies(&self) -> Vec<String> {
         let mut deps = self.depends.clone();
         deps.extend(self.make_depends.clone());
@@ -47,12 +50,14 @@ impl PkgbuildInfo {
     }
 
     /// Check if the package has any dependencies
-    pub fn has_dependencies(&self) -> bool {
+    #[must_use]
+    pub const fn has_dependencies(&self) -> bool {
         !self.depends.is_empty() || !self.make_depends.is_empty() || !self.check_depends.is_empty()
     }
 }
 
 /// PKGBUILD parser with support for various variable assignment patterns
+#[allow(clippy::struct_field_names)]
 pub struct PkgbuildParser {
     /// Regex for double-quoted variables
     re_double_quoted: Regex,
@@ -75,21 +80,21 @@ impl PkgbuildParser {
             re_double_quoted: Regex::new(
                 r#"(?m)^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*"([^"\n#]*?)"\s*(?:#.*)?$"#,
             )
-            .map_err(|e| BuilderError::config(format!("Failed to compile regex: {}", e)))?,
+            .map_err(|e| BuilderError::config(format!("Failed to compile regex: {e}")))?,
             re_single_quoted: Regex::new(
-                r#"(?m)^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*'([^'\n#]*?)'\s*(?:#.*)?$"#,
+                r"(?m)^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*'([^'\n#]*?)'\s*(?:#.*)?$",
             )
-            .map_err(|e| BuilderError::config(format!("Failed to compile regex: {}", e)))?,
+            .map_err(|e| BuilderError::config(format!("Failed to compile regex: {e}")))?,
             re_unquoted: Regex::new(
                 r#"(?m)^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^'"\n#]+?)\s*(?:#.*)?$"#,
             )
-            .map_err(|e| BuilderError::config(format!("Failed to compile regex: {}", e)))?,
-            re_array: Regex::new(r#"(?ms)^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*\(\s*(.*?)\s*\)"#)
-                .map_err(|e| BuilderError::config(format!("Failed to compile regex: {}", e)))?,
-            re_comment: Regex::new(r#"(?m)#.*$"#)
-                .map_err(|e| BuilderError::config(format!("Failed to compile regex: {}", e)))?,
-            re_simple: Regex::new(r#"(?m)^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.*)$"#)
-                .map_err(|e| BuilderError::config(format!("Failed to compile regex: {}", e)))?,
+            .map_err(|e| BuilderError::config(format!("Failed to compile regex: {e}")))?,
+            re_array: Regex::new(r"(?ms)^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*\(\s*(.*?)\s*\)")
+                .map_err(|e| BuilderError::config(format!("Failed to compile regex: {e}")))?,
+            re_comment: Regex::new(r"(?m)#.*$")
+                .map_err(|e| BuilderError::config(format!("Failed to compile regex: {e}")))?,
+            re_simple: Regex::new(r"(?m)^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.*)$")
+                .map_err(|e| BuilderError::config(format!("Failed to compile regex: {e}")))?,
         })
     }
 
@@ -112,15 +117,15 @@ impl PkgbuildParser {
         }
 
         // Parse single-value variables
-        self.parse_single_variables(&content, &mut info)?;
+        self.parse_single_variables(&content, &mut info);
 
         // Parse array variables
-        self.parse_array_variables(&content, &mut info)?;
+        self.parse_array_variables(&content, &mut info);
 
         // Fallback parsing if required fields are missing
         if info.name.is_empty() || info.version.is_empty() || info.release.is_empty() {
             debug!("Primary parsing incomplete, trying fallback method");
-            self.fallback_parse(&content, &mut info)?;
+            self.fallback_parse(&content, &mut info);
         }
 
         debug!(
@@ -128,21 +133,20 @@ impl PkgbuildParser {
             info.name, info.version, info.release
         );
 
-        self.validate_info(&info, path)?;
+        Self::validate_info(&info, path)?;
         Ok(info)
     }
 
     /// Parse single-value variables (pkgname, pkgver, pkgrel)
-    fn parse_single_variables(&self, content: &str, info: &mut PkgbuildInfo) -> Result<()> {
+    fn parse_single_variables(&self, content: &str, info: &mut PkgbuildInfo) {
         // Process different quote types
-        self.process_variable_matches(&self.re_double_quoted, content, info, 2)?;
-        self.process_variable_matches(&self.re_single_quoted, content, info, 2)?;
-        self.process_variable_matches(&self.re_unquoted, content, info, 2)?;
-        Ok(())
+        Self::process_variable_matches(&self.re_double_quoted, content, info, 2);
+        Self::process_variable_matches(&self.re_single_quoted, content, info, 2);
+        Self::process_variable_matches(&self.re_unquoted, content, info, 2);
     }
 
     /// Parse array variables (arch, depends, makedepends, checkdepends)
-    fn parse_array_variables(&self, content: &str, info: &mut PkgbuildInfo) -> Result<()> {
+    fn parse_array_variables(&self, content: &str, info: &mut PkgbuildInfo) {
         let array_matches: Vec<_> = self.re_array.captures_iter(content).collect();
         debug!("Found {} array variable matches", array_matches.len());
 
@@ -151,7 +155,7 @@ impl PkgbuildParser {
                 let key = key_match.as_str().trim();
                 let val = val_match.as_str();
 
-                let cleaned_array = self.clean_array_content(val)?;
+                let cleaned_array = self.clean_array_content(val);
                 debug!("Parsed array {}: {:?}", key, cleaned_array);
 
                 match key {
@@ -163,17 +167,15 @@ impl PkgbuildParser {
                 }
             }
         }
-        Ok(())
     }
 
     /// Process variable matches for a given regex
     fn process_variable_matches(
-        &self,
         regex: &Regex,
         content: &str,
         info: &mut PkgbuildInfo,
         value_index: usize,
-    ) -> Result<()> {
+    ) {
         let matches: Vec<_> = regex.captures_iter(content).collect();
         debug!("Found {} variable matches", matches.len());
 
@@ -192,11 +194,10 @@ impl PkgbuildParser {
                 }
             }
         }
-        Ok(())
     }
 
     /// Clean array content by removing comments, quotes, and normalizing whitespace
-    fn clean_array_content(&self, content: &str) -> Result<Vec<String>> {
+    fn clean_array_content(&self, content: &str) -> Vec<String> {
         // Remove comments
         let cleaned = self.re_comment.replace_all(content, "");
 
@@ -207,17 +208,15 @@ impl PkgbuildParser {
             .replace("  ", " ");
 
         // Split and filter
-        let fields: Vec<String> = normalized
+        normalized
             .split_whitespace()
             .filter(|s| !s.is_empty())
-            .map(|s| s.to_string())
-            .collect();
-
-        Ok(fields)
+            .map(ToString::to_string)
+            .collect()
     }
 
     /// Fallback parsing with simpler regex
-    fn fallback_parse(&self, content: &str, info: &mut PkgbuildInfo) -> Result<()> {
+    fn fallback_parse(&self, content: &str, info: &mut PkgbuildInfo) {
         let simple_matches: Vec<_> = self.re_simple.captures_iter(content).collect();
         debug!("Fallback found {} matches", simple_matches.len());
 
@@ -240,11 +239,10 @@ impl PkgbuildParser {
                 }
             }
         }
-        Ok(())
     }
 
     /// Validate that required fields are present
-    fn validate_info(&self, info: &PkgbuildInfo, path: &Path) -> Result<()> {
+    fn validate_info(info: &PkgbuildInfo, path: &Path) -> Result<()> {
         if info.name.is_empty() || info.version.is_empty() || info.release.is_empty() {
             return Err(BuilderError::pkgbuild_parse(
                 format!(
@@ -301,18 +299,18 @@ makedepends=('gcc' 'make')
 
     #[test]
     fn test_parse_complex_arrays() {
-        let content = r#"
-pkgname=complex-package
-pkgver=2.1.0
-pkgrel=3
-arch=('x86_64' 'aarch64')
-depends=(
-    'dep1'
-    'dep2>=1.0'  # Comment here
-    'dep3'
-)
-makedepends=('build-dep1' 'build-dep2')
-"#;
+        let content = r"
+    pkgname=complex-package
+    pkgver=2.1.0
+    pkgrel=3
+    arch=('x86_64' 'aarch64')
+    depends=(
+        'dep1'
+        'dep2>=1.0'  # Comment here
+        'dep3'
+    )
+    makedepends=('build-dep1' 'build-dep2')
+    ";
         let file = create_test_pkgbuild(content);
         let parser = PkgbuildParser::new().unwrap();
         let info = parser.parse(file.path()).unwrap();

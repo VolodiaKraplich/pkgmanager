@@ -19,7 +19,8 @@ pub struct PackageBuilder {
 
 impl PackageBuilder {
     /// Create a new package builder with the given configuration
-    pub fn new(config: Config) -> Self {
+    #[must_use]
+    pub const fn new(config: Config) -> Self {
         Self {
             process_runner: ProcessRunner::new(config.debug),
             config,
@@ -40,7 +41,7 @@ impl PackageBuilder {
 
         // Handle rust/rustup conflicts if enabled
         let filtered_deps = if self.config.package_manager.handle_rust_conflict {
-            self.handle_rust_conflict(all_deps)?
+            self.handle_rust_conflict(all_deps)
         } else {
             all_deps
         };
@@ -54,7 +55,7 @@ impl PackageBuilder {
     }
 
     /// Handle rust/rustup package conflicts
-    fn handle_rust_conflict(&self, deps: Vec<String>) -> Result<Vec<String>> {
+    fn handle_rust_conflict(&self, deps: Vec<String>) -> Vec<String> {
         let mut has_rust = false;
         let mut has_rustup = false;
         let mut filtered_deps = Vec::new();
@@ -79,7 +80,7 @@ impl PackageBuilder {
             }
         }
 
-        Ok(filtered_deps)
+        filtered_deps
     }
 
     /// Install a list of packages using the configured package manager
@@ -91,9 +92,9 @@ impl PackageBuilder {
         info!("Installing packages with {}: {:?}", cmd, packages);
 
         // Try primary package manager first
-        let args_str: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+        let args_str: Vec<&str> = args.iter().map(String::as_str).collect();
         match self.process_runner.run_command(&cmd, &args_str) {
-            Ok(_) => {
+            Ok(()) => {
                 info!("Successfully installed dependencies with {}", cmd);
                 Ok(())
             }
@@ -101,15 +102,18 @@ impl PackageBuilder {
                 warn!("Primary package manager {} failed: {}", cmd, e);
 
                 // Try fallback if configured
-                if let Some(fallback) = &self.config.package_manager.fallback {
-                    info!("Trying fallback package manager: {}", fallback);
-                    self.try_fallback_installation(fallback, packages)
-                } else {
-                    Err(BuilderError::dependency(
-                        format!("Failed to install dependencies with {}", cmd),
-                        packages.to_vec(),
-                    ))
-                }
+                self.config.package_manager.fallback.as_ref().map_or_else(
+                    || {
+                        Err(BuilderError::dependency(
+                            format!("Failed to install dependencies with {cmd}"),
+                            packages.to_vec(),
+                        ))
+                    },
+                    |fallback| {
+                        info!("Trying fallback package manager: {fallback}");
+                        self.try_fallback_installation(fallback, packages)
+                    },
+                )
             }
         }
     }
@@ -122,13 +126,13 @@ impl PackageBuilder {
                 .package_manager
                 .install_args
                 .iter()
-                .map(|s| s.as_str()),
+                .map(String::as_str),
         );
-        let package_strs: Vec<&str> = packages.iter().map(|s| s.as_str()).collect();
+        let package_strs: Vec<&str> = packages.iter().map(String::as_str).collect();
         args.extend(package_strs);
 
         match self.process_runner.run_command("sudo", &args) {
-            Ok(_) => {
+            Ok(()) => {
                 info!("Successfully installed dependencies with {}", fallback);
                 Ok(())
             }
@@ -177,7 +181,7 @@ impl PackageBuilder {
         info!("Building package: {}", pkgbuild.name);
 
         let (cmd, args) = self.config.get_build_cmd();
-        let args_str: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+        let args_str: Vec<&str> = args.iter().map(String::as_str).collect();
         let mut env_vars = Vec::new();
 
         // Set ccache environment if enabled
@@ -191,10 +195,10 @@ impl PackageBuilder {
         // Execute build command
         self.process_runner
             .run_command_with_env(&cmd, &args_str, &env_vars)
-            .map_err(|e| BuilderError::build(format!("Package build failed: {}", e)))?;
+            .map_err(|e| BuilderError::build(format!("Package build failed: {e}")))?;
 
         // Find generated package files
-        let package_files = self.find_package_files()?;
+        let package_files = Self::find_package_files()?;
 
         if package_files.is_empty() {
             return Err(BuilderError::build(
@@ -214,13 +218,13 @@ impl PackageBuilder {
         );
 
         // List generated files for verification
-        self.list_package_files(&package_files)?;
+        self.list_package_files(&package_files);
 
         Ok(package_files)
     }
 
     /// Find generated package files
-    fn find_package_files(&self) -> Result<Vec<PathBuf>> {
+    fn find_package_files() -> Result<Vec<PathBuf>> {
         let mut package_files = Vec::new();
         let pkg_pattern = "*.pkg.tar.*";
 
@@ -238,8 +242,7 @@ impl PackageBuilder {
             }
             Err(e) => {
                 return Err(BuilderError::build(format!(
-                    "Failed to search for package files: {}",
-                    e
+                    "Failed to search for package files: {e}"
                 )));
             }
         }
@@ -250,16 +253,14 @@ impl PackageBuilder {
     }
 
     /// List package files with details
-    fn list_package_files(&self, package_files: &[PathBuf]) -> Result<()> {
+    fn list_package_files(&self, package_files: &[PathBuf]) {
         let mut args = vec!["-la"];
         let file_strs: Vec<&str> = package_files.iter().filter_map(|p| p.to_str()).collect();
         args.extend(file_strs);
 
         if let Err(e) = self.process_runner.run_command("ls", &args) {
-            warn!("Could not list package files: {}", e);
+            warn!("Could not list package files: {e}");
         }
-
-        Ok(())
     }
 }
 
@@ -290,7 +291,7 @@ mod tests {
             "other-dep".to_string(),
         ];
 
-        let filtered = builder.handle_rust_conflict(deps).unwrap();
+        let filtered = builder.handle_rust_conflict(deps);
 
         // Should either have rustup or remove cargo if rustup exists
         assert!(filtered.contains(&"other-dep".to_string()));

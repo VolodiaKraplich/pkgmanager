@@ -3,7 +3,11 @@
 //! Provides functionality for generating version information and handling
 //! environment variables.
 
-use crate::{core::pkgbuild::PkgbuildInfo, error::Result, utils::fs::FileSystemUtils};
+use crate::{
+    core::pkgbuild::PkgbuildInfo,
+    error::Result,
+    utils::{self, fs::FileSystemUtils},
+};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, env, path::Path};
@@ -26,9 +30,9 @@ pub struct VersionInfo {
     pub full_version: String,
     /// Package name
     pub package_name: String,
-    /// Git tag version (from CI_COMMIT_TAG or fallback to version)
+    /// Git tag version (from `CI_COMMIT_TAG` or fallback to version)
     pub tag_version: String,
-    /// Build job ID (from CI_JOB_ID or "local")
+    /// Build job ID (from `CI_JOB_ID` or "local")
     pub build_job_id: String,
     /// Build timestamp in RFC3339 format
     pub build_date: String,
@@ -38,7 +42,8 @@ pub struct VersionInfo {
 
 impl VersionGenerator {
     /// Create a new version generator
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             fs_utils: FileSystemUtils::new(),
         }
@@ -57,11 +62,10 @@ impl VersionGenerator {
             output_file.display()
         );
 
-        let version_info = self.create_version_info(pkgbuild)?;
-        let env_content = self.format_as_env_file(&version_info)?;
-
+        let version_info = Self::create_version_info(pkgbuild);
+        let env_content = Self::format_as_env_file(&version_info);
         self.fs_utils
-            .write_file(output_file, env_content.as_bytes())
+            .write_file(output_file, env_content)
             .map_err(|e| {
                 crate::error::BuilderError::file_system("write", output_file.to_path_buf(), e)
             })?;
@@ -73,12 +77,12 @@ impl VersionGenerator {
     }
 
     /// Create version information from PKGBUILD and environment
-    fn create_version_info(&self, pkgbuild: &PkgbuildInfo) -> Result<VersionInfo> {
+    fn create_version_info(pkgbuild: &PkgbuildInfo) -> utils::env::VersionInfo {
         let ci_commit_tag = env::var("CI_COMMIT_TAG").unwrap_or_else(|_| pkgbuild.version.clone());
         let ci_job_id = env::var("CI_JOB_ID").unwrap_or_else(|_| "local".to_string());
         let build_date = Utc::now().to_rfc3339();
 
-        let version_info = VersionInfo {
+        VersionInfo {
             version: pkgbuild.version.clone(),
             pkg_release: pkgbuild.release.clone(),
             full_version: pkgbuild.full_version(),
@@ -87,14 +91,12 @@ impl VersionGenerator {
             build_job_id: ci_job_id,
             build_date,
             arch: pkgbuild.arch.join(" "),
-        };
-
-        Ok(version_info)
+        }
     }
 
     /// Format version information as environment file (.env format)
-    fn format_as_env_file(&self, info: &VersionInfo) -> Result<String> {
-        let content = format!(
+    fn format_as_env_file(info: &VersionInfo) -> String {
+        format!(
             r#"VERSION={}
 PKG_RELEASE={}
 FULL_VERSION={}
@@ -112,9 +114,7 @@ ARCH="{}"
             info.build_job_id,
             info.build_date,
             info.arch
-        );
-
-        Ok(content)
+        )
     }
 
     /// Load version information from an existing file
@@ -127,11 +127,11 @@ ARCH="{}"
             crate::error::BuilderError::file_system("read", file_path.to_path_buf(), e)
         })?;
 
-        self.parse_env_content(&content)
+        Ok(Self::parse_env_content(&content))
     }
 
-    /// Parse environment file content into VersionInfo
-    fn parse_env_content(&self, content: &str) -> Result<VersionInfo> {
+    /// Parse environment file content into `VersionInfo`
+    fn parse_env_content(content: &str) -> VersionInfo {
         let mut env_vars = HashMap::new();
 
         for line in content.lines() {
@@ -147,7 +147,7 @@ ARCH="{}"
             }
         }
 
-        let version_info = VersionInfo {
+        VersionInfo {
             version: env_vars
                 .get("VERSION")
                 .cloned()
@@ -180,9 +180,7 @@ ARCH="{}"
                 .get("ARCH")
                 .cloned()
                 .unwrap_or_else(|| "any".to_string()),
-        };
-
-        Ok(version_info)
+        }
     }
 }
 
@@ -198,11 +196,13 @@ pub struct EnvUtils;
 
 impl EnvUtils {
     /// Get an environment variable with a default value
+    #[must_use]
     pub fn get_var_or_default(key: &str, default: &str) -> String {
         env::var(key).unwrap_or_else(|_| default.to_string())
     }
 
     /// Get an environment variable and parse it to a specific type
+    #[must_use]
     pub fn get_var_parsed<T>(key: &str) -> Option<T>
     where
         T: std::str::FromStr,
@@ -211,16 +211,19 @@ impl EnvUtils {
     }
 
     /// Check if running in CI environment
+    #[must_use]
     pub fn is_ci() -> bool {
         env::var("CI").is_ok() || env::var("CONTINUOUS_INTEGRATION").is_ok()
     }
 
     /// Check if running in GitLab CI
+    #[must_use]
     pub fn is_gitlab_ci() -> bool {
         env::var("GITLAB_CI").is_ok()
     }
 
     /// Get GitLab CI variables as a map
+    #[must_use]
     pub fn get_gitlab_ci_vars() -> HashMap<String, String> {
         let mut vars = HashMap::new();
 
@@ -239,7 +242,7 @@ impl EnvUtils {
 
         for var in &gitlab_vars {
             if let Ok(value) = env::var(var) {
-                vars.insert(var.to_string(), value);
+                vars.insert((*var).to_string(), value);
             }
         }
 
@@ -252,12 +255,12 @@ impl EnvUtils {
         K: AsRef<str>,
         V: AsRef<str>,
     {
-        unsafe { env::set_var(key.as_ref(), value.as_ref()) }
+        unsafe { env::set_var(key.as_ref(), value.as_ref()) };
     }
 
     /// Remove environment variable (mainly for testing)
     pub fn remove_var<K: AsRef<str>>(key: K) {
-        unsafe { env::remove_var(key.as_ref()) }
+        unsafe { env::remove_var(key.as_ref()) };
     }
 }
 
@@ -286,14 +289,14 @@ mod tests {
 
     #[test]
     fn test_create_version_info() {
-        let generator = VersionGenerator::new();
+        let _generator = VersionGenerator::new();
         let pkgbuild = create_test_pkgbuild();
 
         // Set test environment variables
         EnvUtils::set_var("CI_COMMIT_TAG", "v1.2.3");
         EnvUtils::set_var("CI_JOB_ID", "12345");
 
-        let version_info = generator.create_version_info(&pkgbuild).unwrap();
+        let version_info = VersionGenerator::create_version_info(&pkgbuild);
 
         assert_eq!(version_info.version, "1.2.3");
         assert_eq!(version_info.pkg_release, "2");
@@ -310,7 +313,7 @@ mod tests {
 
     #[test]
     fn test_format_as_env_file() {
-        let generator = VersionGenerator::new();
+        let _generator = VersionGenerator::new();
         let version_info = VersionInfo {
             version: "1.0.0".to_string(),
             pkg_release: "1".to_string(),
@@ -322,7 +325,7 @@ mod tests {
             arch: "x86_64".to_string(),
         };
 
-        let content = generator.format_as_env_file(&version_info).unwrap();
+        let content = VersionGenerator::format_as_env_file(&version_info);
 
         assert!(content.contains("VERSION=1.0.0"));
         assert!(content.contains("PKG_RELEASE=1"));

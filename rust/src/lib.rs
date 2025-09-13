@@ -1,3 +1,4 @@
+#![allow(clippy::multiple_crate_versions, clippy::cargo_common_metadata)]
 //! # Arch Package Builder
 //!
 //! A reliable tool for building Arch Linux/PrismLinux packages in GitLab CI.
@@ -15,7 +16,7 @@
 //! ## Example
 //!
 //! ```no_run
-//! use arch_package_builder::{config::Config, core::PkgbuildParser};
+//! use pkgmanager_builder::{config::Config, core::PkgbuildParser};
 //!
 //! let parser = PkgbuildParser::new();
 //! let pkgbuild = parser.parse("PKGBUILD")?;

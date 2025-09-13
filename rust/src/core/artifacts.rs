@@ -38,7 +38,8 @@ pub enum ArtifactOperation {
 
 impl ArtifactCollector {
     /// Create a new artifact collector
-    pub fn new(config: Config) -> Self {
+    #[must_use]
+    pub const fn new(config: Config) -> Self {
         Self {
             fs_utils: FileSystemUtils::new(),
             config,
@@ -58,7 +59,7 @@ impl ArtifactCollector {
             .create_dir_all(&self.config.artifacts.output_dir)
             .map_err(|e| {
                 BuilderError::artifact(
-                    format!("Failed to create artifacts directory: {}", e),
+                    format!("Failed to create artifacts directory: {e}"),
                     &self.config.artifacts.output_dir,
                 )
             })?;
@@ -98,11 +99,11 @@ impl ArtifactCollector {
 
         // Handle different pattern types
         let files = match pattern {
-            "*.pkg.tar.*" => self.find_package_files()?,
-            "*.log" => self.find_log_files()?,
-            "PKGBUILD" => self.find_exact_file("PKGBUILD")?,
-            ".SRCINFO" => self.find_exact_file(".SRCINFO")?,
-            _ => self.find_glob_pattern(pattern)?,
+            "*.pkg.tar.*" => Self::find_package_files(),
+            "*.log" => Self::find_log_files(),
+            "PKGBUILD" => Self::find_exact_file("PKGBUILD"),
+            ".SRCINFO" => Self::find_exact_file(".SRCINFO"),
+            _ => Self::find_glob_pattern(pattern),
         };
 
         for file_path in files {
@@ -119,7 +120,7 @@ impl ArtifactCollector {
     }
 
     /// Find package files (*.pkg.tar.*)
-    fn find_package_files(&self) -> Result<Vec<PathBuf>> {
+    fn find_package_files() -> Vec<PathBuf> {
         let mut files = Vec::new();
 
         for pattern in &["*.pkg.tar.xz", "*.pkg.tar.zst", "*.pkg.tar.gz"] {
@@ -130,11 +131,11 @@ impl ArtifactCollector {
             }
         }
 
-        Ok(files)
+        files
     }
 
     /// Find log files
-    fn find_log_files(&self) -> Result<Vec<PathBuf>> {
+    fn find_log_files() -> Vec<PathBuf> {
         let mut files = Vec::new();
 
         if let Ok(paths) = glob::glob("*.log") {
@@ -142,21 +143,17 @@ impl ArtifactCollector {
                 files.push(path);
             }
         }
-        Ok(files)
+        files
     }
 
     /// Find an exact file by name
-    fn find_exact_file(&self, filename: &str) -> Result<Vec<PathBuf>> {
+    fn find_exact_file(filename: &str) -> Vec<PathBuf> {
         let path = PathBuf::from(filename);
-        if path.exists() {
-            Ok(vec![path])
-        } else {
-            Ok(vec![])
-        }
+        if path.exists() { vec![path] } else { vec![] }
     }
 
     /// Find files using glob pattern
-    fn find_glob_pattern(&self, pattern: &str) -> Result<Vec<PathBuf>> {
+    fn find_glob_pattern(pattern: &str) -> Vec<PathBuf> {
         let mut files = Vec::new();
 
         match glob::glob(pattern) {
@@ -164,16 +161,16 @@ impl ArtifactCollector {
                 for path_result in paths {
                     match path_result {
                         Ok(path) => files.push(path),
-                        Err(e) => warn!("Error reading path for pattern {}: {}", pattern, e),
+                        Err(e) => warn!("Error reading path for pattern {pattern}: {e}"),
                     }
                 }
             }
             Err(e) => {
-                warn!("Invalid glob pattern {}: {}", pattern, e);
+                warn!("Invalid glob pattern {pattern}: {e}");
             }
         }
 
-        Ok(files)
+        files
     }
 
     /// Collect a single file
@@ -200,7 +197,7 @@ impl ArtifactCollector {
                     .copy_file(file_path, &destination)
                     .map_err(|e| {
                         BuilderError::artifact(
-                            format!("Failed to copy {}: {}", file_name, e),
+                            format!("Failed to copy {file_name}: {e}"),
                             file_path.to_path_buf(),
                         )
                     })?;
@@ -215,7 +212,7 @@ impl ArtifactCollector {
                     .move_file(file_path, &destination)
                     .map_err(|e| {
                         BuilderError::artifact(
-                            format!("Failed to move {}: {}", file_name, e),
+                            format!("Failed to move {file_name}: {e}"),
                             file_path.to_path_buf(),
                         )
                     })?;
@@ -237,11 +234,10 @@ impl ArtifactCollector {
     /// Determine if a file should be copied (vs moved)
     fn should_copy_file(&self, file_path: &Path, pattern: &str) -> bool {
         // Always copy PKGBUILD and other source files if preserve_sources is enabled
-        if self.config.artifacts.preserve_sources {
-            match file_path.file_name().and_then(|n| n.to_str()) {
-                Some("PKGBUILD") | Some(".SRCINFO") => return true,
-                _ => {}
-            }
+        if self.config.artifacts.preserve_sources
+            && let Some("PKGBUILD" | ".SRCINFO") = file_path.file_name().and_then(|n| n.to_str())
+        {
+            return true;
         }
 
         // Copy files that match certain patterns if configured
@@ -254,6 +250,7 @@ impl ArtifactCollector {
     }
 
     /// Get summary of collected artifacts by type
+    #[must_use]
     pub fn get_collection_summary(&self, artifacts: &[CollectedArtifact]) -> CollectionSummary {
         let mut summary = CollectionSummary::default();
 
@@ -261,7 +258,10 @@ impl ArtifactCollector {
             if let Some(file_name) = artifact.source.file_name().and_then(|n| n.to_str()) {
                 if file_name.contains(".pkg.tar.") {
                     summary.packages += 1;
-                } else if file_name.ends_with(".log") {
+                } else if Path::new(file_name)
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("log"))
+                {
                     summary.logs += 1;
                 } else if file_name == "PKGBUILD" || file_name == ".SRCINFO" {
                     summary.sources += 1;
@@ -355,7 +355,7 @@ mod tests {
     fn test_find_exact_file() {
         let temp_dir = TempDir::new().unwrap();
         let config = create_test_config(&temp_dir);
-        let collector = ArtifactCollector::new(config);
+        let _collector = ArtifactCollector::new(config);
 
         // Create a test file
         let test_file = temp_dir.path().join("test.txt");
@@ -365,11 +365,11 @@ mod tests {
         let original_dir = std::env::current_dir().unwrap();
         std::env::set_current_dir(temp_dir.path()).unwrap();
 
-        let found = collector.find_exact_file("test.txt").unwrap();
+        let found = ArtifactCollector::find_exact_file("test.txt");
         assert_eq!(found.len(), 1);
         assert_eq!(found[0], Path::new("test.txt"));
 
-        let not_found = collector.find_exact_file("nonexistent.txt").unwrap();
+        let not_found = ArtifactCollector::find_exact_file("nonexistent.txt");
         assert_eq!(not_found.len(), 0);
 
         // Restore original directory
